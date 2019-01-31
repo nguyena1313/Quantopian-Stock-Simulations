@@ -1,0 +1,59 @@
+def initialize(context):
+    #set comparison to actual AMD prices
+    #stock that is trading above it's mean is going to drop
+    #a stock trading below its price, it's going to move down in price
+    
+    #compares AMD, NVDA and INTEL (semiconductors)
+    set_benchmark(sid(351))
+    context.sc = [sid(351), sid(3951), sid(19725)]
+    
+    #rebalance once a day 2 hours after market opens
+    schedule_function(rebalance, date_rules.every_day(), time_rules.market_open(hours=2))
+    
+    #
+    schedule_function(record_vars,
+                      date_rules.week_start(),
+                      time_rules.market_open())
+    
+    #
+def compute_weights(context, data):
+    hist = data.history(context.sc, 'price', 30, '1d')
+    
+    #collects 10 day mean and 30 day mean 
+    prices_10 = hist[-10:]
+    prices_30 = hist[-30:]
+    
+    sma_10 = prices_10.mean()
+    sma_30 = prices_30.mean()
+    
+    #relative difference between means
+    raw_weights = (sma_30 - sma_10)/ sma_30
+    
+    #sum of absolute values equals 1
+    normalized_weights = raw_weights / raw_weights.abs().sum()
+    
+    return normalized_weights
+
+def rebalance(context,data):
+    
+    weights = compute_weights(context, data)
+    
+    #trade depending on weight 
+    for semi in context.sc:
+        if data.can_trade(semi):
+            order_target_percent(semi, weights[semi])
+            
+
+#count short and longs
+def record_vars(context,data):
+    
+    longs = 0
+    shorts =0
+    
+    for position in context.portfolio.positions.itervalues():
+        if position.amount>0:
+            longs +=1
+        elif position.amount <0:
+            shorts +=1
+            
+    record(leverage = context.account.leverage, long_count = longs, short_count=shorts)

@@ -1,0 +1,23 @@
+def initialize(context):
+    set_benchmark(sid(351))
+    context.amd = sid(351)
+    schedule_function(crossover_handling,
+                      date_rules.every_day(),
+                      time_rules.market_open(hours=1))
+    
+    
+def crossover_handling(context, data):
+    hist = data.history(context.amd, 'price', 50, '1d')
+    
+    #log.info(hist.head())
+    sma_50 = hist.mean()
+    sma_20 = hist[-20:].mean()
+    
+    open_orders = get_open_orders()
+    
+    if sma_20 >sma_50:
+        order_target_percent(context.amd, 1.0)
+    elif sma_50 > sma_20:
+        order_target_percent(context.amd, -1.0)
+        
+    record(leverage = context.account.leverage)
